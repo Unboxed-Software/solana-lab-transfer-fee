@@ -1,6 +1,6 @@
-import { PublicKey } from '@solana/web3.js'
+import {PublicKey} from '@solana/web3.js'
 
-function printTableData(obj: Object){
+function printTableData(obj: Object) {
 	let tableData: any = []
 
 	if (obj instanceof Array) {
@@ -11,8 +11,8 @@ function printTableData(obj: Object){
 				Object.keys(currentValue).map((key) => {
 					let nestedValue = (currentValue as any)[key]
 					if (nestedValue instanceof PublicKey) {
-						nestedValue = (nestedValue as PublicKey).toBase58();
-						(currentValue as any)[key] = nestedValue
+						nestedValue = (nestedValue as PublicKey).toBase58()
+						;(currentValue as any)[key] = nestedValue
 					}
 				})
 				tableData.push(currentValue)
@@ -29,8 +29,8 @@ function printTableData(obj: Object){
 		tableData.push(obj)
 	}
 
-	console.table(tableData);
-	console.log();
+	console.table(tableData)
+	console.log()
 }
 
 export default printTableData
