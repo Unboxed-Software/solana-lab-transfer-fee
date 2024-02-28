@@ -12,6 +12,7 @@ import {
 	getTransferFeeAmount,
 	withdrawWithheldTokensFromAccounts,
 	harvestWithheldTokensToMint,
+	withdrawWithheldTokensFromMint,
 } from '@solana/spl-token'
 
 export async function transferWithFee(
@@ -130,6 +131,33 @@ export async function harvestTokens(
 		payer,
 		mint,
 		[destinationAccount],
+		{commitment: 'finalized'},
+		TOKEN_2022_PROGRAM_ID
+	)
+
+	console.log(
+		`Check the transaction at: https://explorer.solana.com/tx/${signature}?cluster=${cluster}`
+	)
+
+	return signature
+}
+
+export async function withdrawFromMintToAccount(
+	cluster: Cluster,
+	connection: Connection,
+	payer: Keypair,
+	mint: PublicKey,
+	destinationAccount: PublicKey,
+	withdrawWithheldAuthority: PublicKey
+): Promise<TransactionSignature> {
+	console.log('Withdrawing from mint to account...')
+	const signature = await withdrawWithheldTokensFromMint(
+		connection,
+		payer,
+		mint,
+		destinationAccount,
+		withdrawWithheldAuthority,
+		[],
 		{commitment: 'finalized'},
 		TOKEN_2022_PROGRAM_ID
 	)

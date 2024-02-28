@@ -7,8 +7,9 @@ import {
 	getAccountsToWithdrawFrom,
 	harvestTokens,
 	transferWithFee,
+	withdrawFromMintToAccount,
 	withdrawWithheldTokens,
-} from './transfer-token'
+} from './transfers'
 
 const CLUSTER: Cluster = 'devnet'
 
@@ -30,6 +31,7 @@ async function main() {
 	const decimals = 9
 	const feeBasisPoints = 50
 	const maxFee = BigInt(5000)
+
 	await createMintWithTransferFee(
 		CLUSTER,
 		connection,
@@ -60,7 +62,7 @@ async function main() {
 	console.log('Destination account: ', destinationAccount)
 
 	console.log()
-	const transferTransactionSignature = await transferWithFee(
+	await transferWithFee(
 		CLUSTER,
 		feeBasisPoints,
 		connection,
@@ -79,6 +81,7 @@ async function main() {
 		mintKeypair.publicKey
 	)
 	console.log('Accounts: ', accountsToWithdrawFrom)
+	console.log()
 	await withdrawWithheldTokens(
 		CLUSTER,
 		connection,
@@ -95,6 +98,16 @@ async function main() {
 		mintOwnerUser,
 		mintKeypair.publicKey,
 		destinationAccount
+	)
+
+	console.log()
+	await withdrawFromMintToAccount(
+		CLUSTER,
+		connection,
+		mintOwnerUser,
+		mintKeypair.publicKey,
+		sourceAccount,
+		mintOwnerUser.publicKey
 	)
 }
 
