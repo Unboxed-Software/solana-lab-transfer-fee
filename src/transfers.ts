@@ -4,6 +4,7 @@ import {
 	PublicKey,
 	Keypair,
 	TransactionSignature,
+	Signer,
 } from '@solana/web3.js'
 import {
 	transferCheckedWithFee,
@@ -24,7 +25,8 @@ export async function transferWithFee(
 	sourceAccount: PublicKey,
 	destinationAccount: PublicKey,
 	sourceOwner: PublicKey,
-	decimals: number
+	decimals: number,
+	signers?: Signer[] | undefined
 ): Promise<TransactionSignature> {
 	const transferAmount = BigInt(1_000_000)
 	const fee = (transferAmount * BigInt(feeBasisPoints)) / BigInt(10_000)
@@ -40,7 +42,7 @@ export async function transferWithFee(
 		transferAmount,
 		decimals,
 		fee,
-		[],
+		signers,
 		{commitment: 'finalized'},
 		TOKEN_2022_PROGRAM_ID
 	)
@@ -95,18 +97,19 @@ export async function withdrawWithheldTokens(
 	connection: Connection,
 	payer: Keypair,
 	mint: PublicKey,
-	destinationAccount: PublicKey,
-	withdrawWithheldAuthority: PublicKey
+	feeVaultAccount: PublicKey,
+	withdrawWithheldAuthority: PublicKey,
+	accountsToWithdrawFrom: PublicKey[]
 ): Promise<TransactionSignature> {
 	console.log('Withdrawing withheld tokens...')
 	const signature = await withdrawWithheldTokensFromAccounts(
 		connection,
 		payer,
 		mint,
-		destinationAccount,
+		feeVaultAccount,
 		withdrawWithheldAuthority,
 		[],
-		[destinationAccount],
+		accountsToWithdrawFrom,
 		{commitment: 'finalized'},
 		TOKEN_2022_PROGRAM_ID
 	)
@@ -147,15 +150,15 @@ export async function withdrawFromMintToAccount(
 	connection: Connection,
 	payer: Keypair,
 	mint: PublicKey,
-	destinationAccount: PublicKey,
+	feeVaultAccount: PublicKey,
 	withdrawWithheldAuthority: PublicKey
 ): Promise<TransactionSignature> {
-	console.log('Withdrawing from mint to account...')
+	console.log('Withdrawing from mint to fee vault account...')
 	const signature = await withdrawWithheldTokensFromMint(
 		connection,
 		payer,
 		mint,
-		destinationAccount,
+		feeVaultAccount,
 		withdrawWithheldAuthority,
 		[],
 		{commitment: 'finalized'},

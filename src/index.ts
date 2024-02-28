@@ -10,6 +10,10 @@ import {
 	withdrawFromMintToAccount,
 	withdrawWithheldTokens,
 } from './transfers'
+import {
+	TOKEN_2022_PROGRAM_ID,
+	createAssociatedTokenAccount,
+} from '@solana/spl-token'
 
 const CLUSTER: Cluster = 'devnet'
 
@@ -24,9 +28,11 @@ async function main() {
 	console.log(`public key: ${mintOwnerUser.publicKey.toBase58()}`)
 
 	const mintKeypair = Keypair.generate()
-
 	console.log('\nmint public key: ' + mintKeypair.publicKey.toBase58())
 
+	/**
+	 * Creating a mint with transfer fees
+	 */
 	console.log()
 	const decimals = 9
 	const feeBasisPoints = 50
@@ -42,14 +48,39 @@ async function main() {
 		maxFee
 	)
 
+	/**
+	 * An account to collect fees
+	 */
+	console.log('\nCreating a fee vault account...')
+	const feeVaultKeypair = Keypair.generate()
+	const feeVaultAccount = await createAssociatedTokenAccount(
+		connection,
+		mintOwnerUser,
+		mintKeypair.publicKey,
+		feeVaultKeypair.publicKey,
+		{commitment: 'finalized'},
+		TOKEN_2022_PROGRAM_ID
+	)
+	var balance = await (
+		await connection.getTokenAccountBalance(feeVaultAccount, 'finalized')
+	).value.amount
+	console.log('Current fee vault balance: ' + balance)
+
+	/**
+	 * Creating a source account for a transfer and minting 1 token to that account
+	 */
 	console.log()
+	const sourceKeypair = Keypair.generate()
 	const sourceAccount = await mintToken(
 		connection,
 		mintOwnerUser,
 		mintKeypair.publicKey,
-		mintOwnerUser.publicKey
+		sourceKeypair.publicKey
 	)
 
+	/**
+	 * Creating a destination account for a transfer
+	 */
 	console.log()
 	console.log('Creating a destination account...')
 	const destinationKeypair = Keypair.generate()
@@ -57,10 +88,13 @@ async function main() {
 		connection,
 		mintOwnerUser,
 		mintKeypair.publicKey,
-		destinationKeypair.publicKey
+		sourceKeypair.publicKey,
+		destinationKeypair
 	)
-	console.log('Destination account: ', destinationAccount)
 
+	/**
+	 * Transferring 1 token from the source account to the destination account
+	 */
 	console.log()
 	await transferWithFee(
 		CLUSTER,
@@ -70,10 +104,20 @@ async function main() {
 		mintKeypair.publicKey,
 		sourceAccount,
 		destinationAccount,
-		mintOwnerUser.publicKey,
-		decimals
+		sourceKeypair.publicKey,
+		decimals,
+		[sourceKeypair, destinationKeypair]
 	)
 
+	/**
+	 * There are 2 ways to withdraw fees
+	 *  - Get a list of all accounts to withdraw from and then withdraw to the fee vault account
+	 *  - Harvest from the recipient account to the mint account and then withdraw to the fee vault account
+	 */
+
+	/**
+	 * 1. Get a list of accounts to withdraw from and then withdraw to the fee vault account
+	 */
 	console.log()
 	console.log('Getting all accounts to withdraw from...')
 	const accountsToWithdrawFrom = await getAccountsToWithdrawFrom(
@@ -87,10 +131,19 @@ async function main() {
 		connection,
 		mintOwnerUser,
 		mintKeypair.publicKey,
-		destinationAccount,
-		mintOwnerUser.publicKey
+		feeVaultAccount,
+		mintOwnerUser.publicKey,
+		accountsToWithdrawFrom
 	)
+	console.log()
+	balance = (
+		await connection.getTokenAccountBalance(feeVaultAccount, 'finalized')
+	).value.amount
+	console.log('Current fee vault balance: ' + balance)
 
+	/**
+	 * 2. Harvest from the recipient account to the mint account and then withdraw to the fee vault account
+	 */
 	console.log()
 	await harvestTokens(
 		CLUSTER,
@@ -106,9 +159,14 @@ async function main() {
 		connection,
 		mintOwnerUser,
 		mintKeypair.publicKey,
-		sourceAccount,
+		feeVaultAccount,
 		mintOwnerUser.publicKey
 	)
+	console.log()
+	balance = (
+		await connection.getTokenAccountBalance(feeVaultAccount, 'finalized')
+	).value.amount
+	console.log('Current fee vault balance: ' + balance)
 }
 
 main()

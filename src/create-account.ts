@@ -5,14 +5,15 @@ export async function createAccountForTransaction(
 	connection: Connection,
 	payer: Keypair,
 	mint: PublicKey,
-	owner: PublicKey
+	owner: PublicKey,
+	keypairForAta?: Keypair
 ): Promise<PublicKey> {
 	const account = await createAccount(
 		connection,
 		payer,
 		mint,
 		owner,
-		undefined,
+		keypairForAta,
 		{commitment: 'finalized'},
 		TOKEN_2022_PROGRAM_ID
 	)
