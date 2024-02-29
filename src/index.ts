@@ -1,18 +1,23 @@
-import {Cluster, Connection, clusterApiUrl, Keypair} from '@solana/web3.js'
+import {
+	Cluster,
+	Connection,
+	clusterApiUrl,
+	Keypair,
+	LAMPORTS_PER_SOL,
+} from '@solana/web3.js'
 import {initializeKeypair} from './keypair-helpers'
 import {createMintWithTransferFee} from './create-mint'
-import {mintToken} from './mint-token'
-import {createAccountForTransaction} from './create-account'
-import {
-	getAccountsToWithdrawFrom,
-	harvestTokens,
-	transferWithFee,
-	withdrawFromMintToAccount,
-	withdrawWithheldTokens,
-} from './transfers'
 import {
 	TOKEN_2022_PROGRAM_ID,
+	createAccount,
 	createAssociatedTokenAccount,
+	getTransferFeeAmount,
+	harvestWithheldTokensToMint,
+	mintTo,
+	transferCheckedWithFee,
+	unpackAccount,
+	withdrawWithheldTokensFromAccounts,
+	withdrawWithheldTokensFromMint,
 } from '@solana/spl-token'
 
 const CLUSTER: Cluster = 'devnet'
@@ -23,17 +28,19 @@ async function main() {
 	 * If a keypair exists, airdrop a sol if needed.
 	 */
 	const connection = new Connection(clusterApiUrl(CLUSTER))
-	const mintOwnerUser = await initializeKeypair(connection)
+	const payer = await initializeKeypair(connection)
 
-	console.log(`public key: ${mintOwnerUser.publicKey.toBase58()}`)
+	console.log(`public key: ${payer.publicKey.toBase58()}`)
 
 	const mintKeypair = Keypair.generate()
-	console.log('\nmint public key: ' + mintKeypair.publicKey.toBase58())
+	const mint = mintKeypair.publicKey
+	console.log(
+		'\nmint public key: ' + mintKeypair.publicKey.toBase58() + '\n\n'
+	)
 
 	/**
 	 * Creating a mint with transfer fees
 	 */
-	console.log()
 	const decimals = 9
 	const feeBasisPoints = 50
 	const maxFee = BigInt(5000)
@@ -41,7 +48,7 @@ async function main() {
 	await createMintWithTransferFee(
 		CLUSTER,
 		connection,
-		mintOwnerUser,
+		payer,
 		mintKeypair,
 		decimals,
 		feeBasisPoints,
@@ -55,7 +62,7 @@ async function main() {
 	const feeVaultKeypair = Keypair.generate()
 	const feeVaultAccount = await createAssociatedTokenAccount(
 		connection,
-		mintOwnerUser,
+		payer,
 		mintKeypair.publicKey,
 		feeVaultKeypair.publicKey,
 		{commitment: 'finalized'},
@@ -64,49 +71,74 @@ async function main() {
 	var balance = await (
 		await connection.getTokenAccountBalance(feeVaultAccount, 'finalized')
 	).value.amount
-	console.log('Current fee vault balance: ' + balance)
+	console.log('Current fee vault balance: ' + balance + '\n\n')
 
 	/**
 	 * Creating a source account for a transfer and minting 1 token to that account
 	 */
-	console.log()
+	console.log('Creating a source account...')
 	const sourceKeypair = Keypair.generate()
-	const sourceAccount = await mintToken(
+	const sourceAccount = await createAccount(
 		connection,
-		mintOwnerUser,
-		mintKeypair.publicKey,
-		sourceKeypair.publicKey
+		payer,
+		mint,
+		sourceKeypair.publicKey,
+		undefined,
+		{commitment: 'finalized'},
+		TOKEN_2022_PROGRAM_ID
+	)
+
+	console.log('Minting 1 token...\n\n')
+	const amount = 1 * LAMPORTS_PER_SOL
+	await mintTo(
+		connection,
+		payer,
+		mint,
+		sourceAccount,
+		payer,
+		amount,
+		[payer],
+		{commitment: 'finalized'},
+		TOKEN_2022_PROGRAM_ID
 	)
 
 	/**
 	 * Creating a destination account for a transfer
 	 */
-	console.log()
-	console.log('Creating a destination account...')
+	console.log('Creating a destination account...\n\n')
 	const destinationKeypair = Keypair.generate()
-	const destinationAccount = await createAccountForTransaction(
+	const destinationAccount = await createAccount(
 		connection,
-		mintOwnerUser,
-		mintKeypair.publicKey,
-		sourceKeypair.publicKey,
-		destinationKeypair
+		payer,
+		mint,
+		destinationKeypair.publicKey,
+		undefined,
+		{commitment: 'finalized'},
+		TOKEN_2022_PROGRAM_ID
 	)
 
 	/**
 	 * Transferring 1 token from the source account to the destination account
 	 */
-	console.log()
-	await transferWithFee(
-		CLUSTER,
-		feeBasisPoints,
+	console.log('Transferring with fee transaction...')
+	const transferAmount = BigInt(1_000_000)
+	const fee = (transferAmount * BigInt(feeBasisPoints)) / BigInt(10_000)
+	var signature = await transferCheckedWithFee(
 		connection,
-		mintOwnerUser,
-		mintKeypair.publicKey,
+		payer,
 		sourceAccount,
+		mint,
 		destinationAccount,
 		sourceKeypair.publicKey,
+		transferAmount,
 		decimals,
-		[sourceKeypair, destinationKeypair]
+		fee,
+		[sourceKeypair, destinationKeypair],
+		{commitment: 'finalized'},
+		TOKEN_2022_PROGRAM_ID
+	)
+	console.log(
+		`Check the transaction at: https://explorer.solana.com/tx/${signature}?cluster=${CLUSTER} \n\n`
 	)
 
 	/**
@@ -118,51 +150,95 @@ async function main() {
 	/**
 	 * 1. Get a list of accounts to withdraw from and then withdraw to the fee vault account
 	 */
-	console.log()
 	console.log('Getting all accounts to withdraw from...')
-	const accountsToWithdrawFrom = await getAccountsToWithdrawFrom(
-		connection,
-		mintKeypair.publicKey
+	const accounts = await connection.getProgramAccounts(
+		TOKEN_2022_PROGRAM_ID,
+		{
+			commitment: 'finalized',
+			filters: [
+				{
+					memcmp: {
+						offset: 0,
+						bytes: mint.toString(),
+					},
+				},
+			],
+		}
 	)
-	console.log('Accounts: ', accountsToWithdrawFrom)
-	console.log()
-	await withdrawWithheldTokens(
-		CLUSTER,
+
+	const accountsToWithdrawFrom = []
+	for (const accountInfo of accounts) {
+		const unpackedAccount = unpackAccount(
+			accountInfo.pubkey,
+			accountInfo.account,
+			TOKEN_2022_PROGRAM_ID
+		)
+
+		const transferFeeAmount = getTransferFeeAmount(unpackedAccount)
+		if (
+			transferFeeAmount != null &&
+			transferFeeAmount.withheldAmount > BigInt(0)
+		) {
+			accountsToWithdrawFrom.push(accountInfo.pubkey)
+		}
+	}
+
+	console.log('Accounts to withdraw from: ', accountsToWithdrawFrom, '\n\n')
+	console.log('Withdrawing withheld tokens...')
+	signature = await withdrawWithheldTokensFromAccounts(
 		connection,
-		mintOwnerUser,
-		mintKeypair.publicKey,
+		payer,
+		mint,
 		feeVaultAccount,
-		mintOwnerUser.publicKey,
-		accountsToWithdrawFrom
+		payer.publicKey,
+		[],
+		accountsToWithdrawFrom,
+		{commitment: 'finalized'},
+		TOKEN_2022_PROGRAM_ID
 	)
-	console.log()
+
+	console.log(
+		`Check the transaction at: https://explorer.solana.com/tx/${signature}?cluster=${CLUSTER} \n\n`
+	)
+
 	balance = (
 		await connection.getTokenAccountBalance(feeVaultAccount, 'finalized')
 	).value.amount
-	console.log('Current fee vault balance: ' + balance)
+	console.log('Current fee vault balance: ' + balance + '\n\n')
 
 	/**
 	 * 2. Harvest from the recipient account to the mint account and then withdraw to the fee vault account
 	 */
-	console.log()
-	await harvestTokens(
-		CLUSTER,
+	console.log('Harvesting withheld tokens...')
+	signature = await harvestWithheldTokensToMint(
 		connection,
-		mintOwnerUser,
-		mintKeypair.publicKey,
-		destinationAccount
+		payer,
+		mint,
+		[destinationAccount],
+		{commitment: 'finalized'},
+		TOKEN_2022_PROGRAM_ID
 	)
 
-	console.log()
-	await withdrawFromMintToAccount(
-		CLUSTER,
-		connection,
-		mintOwnerUser,
-		mintKeypair.publicKey,
-		feeVaultAccount,
-		mintOwnerUser.publicKey
+	console.log(
+		`Check the transaction at: https://explorer.solana.com/tx/${signature}?cluster=${CLUSTER} \n\n`
 	)
-	console.log()
+
+	console.log('Withdrawing from mint to fee vault account...')
+	signature = await withdrawWithheldTokensFromMint(
+		connection,
+		payer,
+		mint,
+		feeVaultAccount,
+		payer.publicKey,
+		[],
+		{commitment: 'finalized'},
+		TOKEN_2022_PROGRAM_ID
+	)
+
+	console.log(
+		`Check the transaction at: https://explorer.solana.com/tx/${signature}?cluster=${CLUSTER} \n\n`
+	)
+
 	balance = (
 		await connection.getTokenAccountBalance(feeVaultAccount, 'finalized')
 	).value.amount

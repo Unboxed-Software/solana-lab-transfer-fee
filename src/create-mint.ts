@@ -5,7 +5,6 @@ import {
 	Keypair,
 	SystemProgram,
 	Transaction,
-	LAMPORTS_PER_SOL,
 	TransactionSignature,
 } from '@solana/web3.js'
 
