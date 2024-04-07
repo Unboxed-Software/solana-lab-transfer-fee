@@ -1,14 +1,12 @@
-import {Cluster, Connection, clusterApiUrl, Keypair} from '@solana/web3.js'
-import {initializeKeypair} from './keypair-helpers'
+import { Connection, Keypair } from '@solana/web3.js'
+import { initializeKeypair } from '@solana-developers/helpers'
 
-const CLUSTER: Cluster = 'devnet'
-
-async function main() {
+(async () => {
 	/**
 	 * Create a connection and initialize a keypair if one doesn't already exists.
 	 * If a keypair exists, airdrop a sol if needed.
 	 */
-	const connection = new Connection(clusterApiUrl(CLUSTER))
+	const connection = new Connection("http://127.0.0.1:8899")
 	const payer = await initializeKeypair(connection)
 
 	console.log(`public key: ${payer.publicKey.toBase58()}`)
@@ -40,6 +38,4 @@ async function main() {
 	// WITHDRAW HARVESTED TOKENS
 
 	// VERIFY UPDATED FEE VAULT BALANCE
-}
-
-main()
+})();
