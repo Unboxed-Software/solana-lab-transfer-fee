@@ -1,41 +1,39 @@
 import { Connection, Keypair } from '@solana/web3.js'
 import { initializeKeypair } from '@solana-developers/helpers'
 
-(async () => {
-	/**
-	 * Create a connection and initialize a keypair if one doesn't already exists.
-	 * If a keypair exists, airdrop a sol if needed.
-	 */
-	const connection = new Connection("http://127.0.0.1:8899")
-	const payer = await initializeKeypair(connection)
+/**
+ * Create a connection and initialize a keypair if one doesn't already exists.
+ * If a keypair exists, airdrop a sol if needed.
+ */
+const connection = new Connection("http://127.0.0.1:8899")
+const payer = await initializeKeypair(connection)
 
-	console.log(`public key: ${payer.publicKey.toBase58()}`)
+console.log(`public key: ${payer.publicKey.toBase58()}`)
 
-	const mintKeypair = Keypair.generate()
-	const mint = mintKeypair.publicKey
-	console.log(
-		'\nmint public key: ' + mintKeypair.publicKey.toBase58() + '\n\n'
-	)
+const mintKeypair = Keypair.generate()
+const mint = mintKeypair.publicKey
+console.log(
+	'\nmint public key: ' + mintKeypair.publicKey.toBase58() + '\n\n'
+)
 
-	// CREATE MINT WITH TRANSFER FEE
+// CREATE MINT WITH TRANSFER FEE
 
-	// CREATE FEE VAULT ACCOUNT
+// CREATE FEE VAULT ACCOUNT
 
-	// CREATE A SOURCE ACCOUNT AND MINT TOKEN
+// CREATE A SOURCE ACCOUNT AND MINT TOKEN
 
-	// CREATE DESTINATION ACCOUNT
+// CREATE DESTINATION ACCOUNT
 
-	// TRANSFER TOKENS
+// TRANSFER TOKENS
 
-	// FETCH ACCOUNTS WITH WITHHELD TOKENS
+// FETCH ACCOUNTS WITH WITHHELD TOKENS
 
-	// WITHDRAW WITHHELD TOKENS
+// WITHDRAW WITHHELD TOKENS
 
-	// VERIFY UPDATED FEE VAULT BALANCE
+// VERIFY UPDATED FEE VAULT BALANCE
 
-	// HARVEST WITHHELD TOKENS TO MINT
+// HARVEST WITHHELD TOKENS TO MINT
 
-	// WITHDRAW HARVESTED TOKENS
+// WITHDRAW HARVESTED TOKENS
 
-	// VERIFY UPDATED FEE VAULT BALANCE
-})();
+// VERIFY UPDATED FEE VAULT BALANCE
