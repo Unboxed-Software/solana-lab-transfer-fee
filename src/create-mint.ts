@@ -1,5 +1,4 @@
 import {
-	Cluster,
 	sendAndConfirmTransaction,
 	Connection,
 	Keypair,
@@ -17,7 +16,6 @@ import {
 } from '@solana/spl-token'
 
 export async function createMintWithTransferFee(
-	cluster: Cluster,
 	connection: Connection,
 	payer: Keypair,
 	mintKeypair: Keypair,
@@ -62,11 +60,9 @@ export async function createMintWithTransferFee(
 		connection,
 		mintTransaction,
 		[payer, mintKeypair],
-		{commitment: 'finalized'}
+		{ commitment: 'finalized' }
 	)
-	console.log(
-		`Check the transaction at: https://explorer.solana.com/tx/${signature}?cluster=${cluster}`
-	)
+	console.log('Transaction sent')
 
 	return signature
 }
