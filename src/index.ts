@@ -3,7 +3,7 @@ import { initializeKeypair } from '@solana-developers/helpers'
 
 /**
  * Create a connection and initialize a keypair if one doesn't already exists.
- * If a keypair exists, airdrop a sol if needed.
+ * If a keypair exists, airdrop a SOL token if needed.
  */
 const connection = new Connection("http://127.0.0.1:8899")
 const payer = await initializeKeypair(connection)
