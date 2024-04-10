@@ -63,7 +63,7 @@ const feeVaultAccount = await createAssociatedTokenAccount(
 	{ commitment: 'finalized' },
 	TOKEN_2022_PROGRAM_ID
 )
-const balance = (
+let balance = (
 	await connection.getTokenAccountBalance(feeVaultAccount, 'finalized')
 ).value.amount
 console.log('Current fee vault balance: ' + balance + '\n\n')
@@ -118,7 +118,7 @@ const destinationAccount = await createAccount(
 console.log('Transferring with fee transaction...')
 const transferAmount = BigInt(1_000_000)
 const fee = (transferAmount * BigInt(feeBasisPoints)) / BigInt(10_000)
-const signature = await transferCheckedWithFee(
+let signature = await transferCheckedWithFee(
 	connection,
 	payer,
 	sourceAccount,
