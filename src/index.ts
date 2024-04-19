@@ -6,9 +6,8 @@ import { transferCheckedWithFee} from "@solana/spl-token"
  * Create a connection and initialize a keypair if one doesn't already exists.
  * If a keypair exists, airdrop a SOL token if needed.
  */
-
-// const connection = new Connection("http://127.0.0.1:8899")
-const connection = new Connection(clusterApiUrl("devnet"))
+// const connection = new Connection(clusterApiUrl("devnet"))
+const connection = new Connection("http://127.0.0.1:8899")
 const payer = await initializeKeypair(connection)
 
 console.log(`public key: ${payer.publicKey.toBase58()}`)
